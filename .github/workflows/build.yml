@@ -10,6 +10,13 @@ on:
   # produces artifacts but never publishes a release.
   workflow_dispatch:
 
+# Read-only by default; only the job that cuts a release gets write, and only to
+# repository contents. Without this the workflow inherits the repository default,
+# which is read-only for repositories created recently — the release step then
+# fails with a 403 after everything has already been built.
+permissions:
+  contents: read
+
 # CI's only artifact target is the Raspberry Pi. The macOS binary is built
 # locally on the developer's MacBook with the existing cmake/ninja setup, so
 # there is deliberately no macOS job here.
@@ -159,6 +166,8 @@ jobs:
   package:
     runs-on: ubuntu-latest
     needs: [backend-aarch64, frontend-aarch64]
+    permissions:
+      contents: write # create the release and upload its assets
     # Tag pushes only. See the note at the top of the file.
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
