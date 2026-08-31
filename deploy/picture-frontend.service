@@ -1,6 +1,6 @@
 [Unit]
 Description=Picture frame display
-Documentation=https://github.com/olivermaier/picture_minimal
+Documentation=https://github.com/predoli/picture_minimal
 After=picture-backend.service
 Wants=picture-backend.service
 ConditionPathExists=/dev/dri/card0

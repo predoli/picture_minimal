@@ -22,7 +22,7 @@ KEEP_RELEASES=3
 HEALTH_TIMEOUT=30
 
 # Override in /etc/picture-frame/update.conf, which install.sh does not manage.
-REPO="${PICTURE_FRAME_REPO:-olivermaier/picture_minimal}"
+REPO="${PICTURE_FRAME_REPO:-predoli/picture_minimal}"
 # shellcheck disable=SC1091
 [[ -f "$CONFIG_DIR/update.conf" ]] && source "$CONFIG_DIR/update.conf"
 
@@ -47,14 +47,11 @@ done
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-curl_gh() {
-	local url="$1" out="$2"
-	local -a auth=()
-	# Private repositories need a token for both the API and the asset download.
-	if [[ -f "$CONFIG_DIR/github-token" ]]; then
-		auth=(-H "Authorization: Bearer $(<"$CONFIG_DIR/github-token")")
-	fi
-	curl -fsSL --retry 3 --retry-delay 2 "${auth[@]}" -o "$out" "$url"
+# The repository is public, so releases are fetched anonymously and no frame
+# holds a GitHub credential. Keeping one fewer secret on a wall-mounted
+# appliance is worth more than the privacy of a picture-frame build.
+fetch() {
+	curl -fsSL --retry 3 --retry-delay 2 -o "$2" "$1"
 }
 
 # --- work out what we are installing -----------------------------------------
@@ -66,7 +63,7 @@ if [[ -n "$FROM_FILE" ]]; then
 else
 	if [[ -z "$VERSION" ]]; then
 		log "Looking up the latest release of $REPO"
-		curl_gh "https://api.github.com/repos/$REPO/releases/latest" "$WORK/release.json" ||
+		fetch "https://api.github.com/repos/$REPO/releases/latest" "$WORK/release.json" ||
 			die "could not reach the GitHub releases API"
 		VERSION="$(grep -m1 '"tag_name"' "$WORK/release.json" | cut -d'"' -f4)"
 		[[ -n "$VERSION" ]] || die "could not determine the latest version"
@@ -82,8 +79,8 @@ else
 	BASE="https://github.com/$REPO/releases/download/$VERSION"
 
 	log "Downloading $TARBALL"
-	curl_gh "$BASE/$TARBALL" "$WORK/release.tgz" || die "download failed"
-	curl_gh "$BASE/SHA256SUMS" "$WORK/SHA256SUMS" || die "could not fetch SHA256SUMS"
+	fetch "$BASE/$TARBALL" "$WORK/release.tgz" || die "download failed"
+	fetch "$BASE/SHA256SUMS" "$WORK/SHA256SUMS" || die "could not fetch SHA256SUMS"
 
 	# Verify before unpacking. A corrupt or tampered archive must never reach the
 	# filesystem, let alone the running service.

@@ -57,6 +57,11 @@ health-check the socket, and roll back to the previous release on any failure.
 Configuration and the paired credential are never touched, so an update never
 forces a re-pair.
 
+The frame downloads the release from GitHub itself — your Mac only sends the
+command over Tailscale SSH — so it needs ordinary internet access, not just the
+tailnet. The repository is public, so that download is anonymous and no frame
+holds a GitHub credential of any kind.
+
 ## Tailnet policy
 
 Frames must join **tagged**. Key expiry is disabled by default for tagged

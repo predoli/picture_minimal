@@ -1,6 +1,6 @@
 [Unit]
 Description=Picture frame Nextcloud sync backend
-Documentation=https://github.com/olivermaier/picture_minimal
+Documentation=https://github.com/predoli/picture_minimal
 After=network-online.target
 Wants=network-online.target
 # Deliberately no dependency on tailscaled: Tailscale is for administration
