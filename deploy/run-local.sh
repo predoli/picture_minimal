@@ -61,7 +61,9 @@ cmake -B build -G Ninja \
 	-DFRAME_DISPLAY=sdl \
 	-DFRAME_SDL_WIDTH="$WIDTH" \
 	-DFRAME_SDL_HEIGHT="$HEIGHT" >/dev/null
-cmake --build build >/dev/null
+# LVGL defines demo and example targets with no way to switch them off, so
+# build ours by name rather than the default "all".
+cmake --build build --target PictureMinimal >/dev/null
 
 log "Building backend"
 export GOTOOLCHAIN=auto

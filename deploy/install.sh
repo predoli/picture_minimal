@@ -28,11 +28,13 @@ die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
 # --- packages -----------------------------------------------------------------
 # libheif1 lets the HEIC decoder take its native path instead of the much slower
-# WebAssembly fallback. The binaries are otherwise static. socat is used by
-# update.sh to probe the socket during its health check.
+# WebAssembly fallback; libdrm2 is what the frontend renders through. Both are
+# usually present already, but naming them turns a missing one into an install
+# error rather than a service that will not start. socat is used by update.sh to
+# probe the socket during its health check.
 log "Installing runtime packages"
 apt-get update -qq
-apt-get install -y --no-install-recommends libheif1 ca-certificates curl socat
+apt-get install -y --no-install-recommends libheif1 libdrm2 ca-certificates curl socat
 
 # --- user and directories -----------------------------------------------------
 if ! id "$FRAME_USER" &>/dev/null; then

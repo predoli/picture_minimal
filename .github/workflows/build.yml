@@ -49,23 +49,111 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build pkg-config libsdl2-dev
           cmake -B build -G Ninja -DFRAME_DISPLAY=sdl
-          cmake --build build
+          # LVGL defines demo and example targets with no way to switch them
+          # off, so build ours by name rather than the default "all".
+          cmake --build build --target PictureMinimal
 
-  pi:
+  # The Pi artifacts are built with ordinary Debian tooling rather than through
+  # Nix. Nix was cross-compiling via pkgsCross, and cross-built derivations are
+  # not in the binary cache, so every run rebuilt a whole gcc/glibc toolchain
+  # from source. The one thing that was worth keeping — a glibc no newer than
+  # the frames' — is now had by building inside the same Debian release they run.
+  backend-aarch64:
     runs-on: ubuntu-latest
     needs: checks
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # No cross toolchain is involved: Go targets aarch64 on its own, in
+      # seconds, on any runner. CGO stays off, though the result is still
+      # dynamically linked — purego, which the HEIC decoder pulls in, needs
+      # dlopen. It requires no versioned glibc symbols, so unlike the frontend
+      # it puts no floor on the target's libc version.
+      - name: Build picture-backend for aarch64
+        working-directory: backend
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: arm64
+        run: go build -trimpath -ldflags="-s -w" -o ../picture-backend ./cmd/picture-backend
+
+      - name: Check what came out
+        run: file picture-backend | tee /dev/stderr | grep -q "ARM aarch64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-backend
+          path: picture-backend
+          retention-days: 7
+
+  frontend-aarch64:
+    runs-on: ubuntu-latest
+    needs: checks
+    container:
+      # Bookworm is what the frames run; pinned by digest so a rebuild of the
+      # tag cannot silently move the glibc the binaries are linked against.
+      image: debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
+    steps:
+      # Before checkout: without git the action falls back to a tarball download,
+      # which would leave the LVGL submodules empty.
+      - name: Install the cross toolchain
+        run: |
+          dpkg --add-architecture arm64
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates git file cmake ninja-build pkg-config \
+            g++-aarch64-linux-gnu libdrm-dev:arm64
+
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Build aarch64 binaries
+      - name: Build picture-frontend for aarch64
         run: |
-          nix build .#frontend-aarch64 --print-build-logs -o result-frontend
-          nix build .#backend-aarch64 --print-build-logs -o result-backend
+          cmake -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/deploy/aarch64-linux-gnu.cmake" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFRAME_DISPLAY=drm
+          # LVGL defines demo and example targets with no way to switch them
+          # off, so build ours by name rather than the default "all".
+          cmake --build build --target PictureMinimal
+
+      # The reason this job runs in a container at all, asserted rather than
+      # assumed: a binary needing a newer glibc than the frames have does not
+      # fail here, it fails on the wall, after an update, with "not found".
+      - name: Check the glibc requirement against the Pi's 2.36
+        run: |
+          file build/picture-frontend | tee /dev/stderr | grep -q "ARM aarch64"
+          highest="$(aarch64-linux-gnu-objdump -T build/picture-frontend \
+            | sed -n 's/.*GLIBC_\([0-9][0-9.]*\).*/\1/p' | sort -V | tail -1)"
+          echo "highest glibc symbol required: ${highest:-none}"
+          if [ -n "$highest" ] && [ "$(printf '%s\n2.36\n' "$highest" | sort -V | tail -1)" != "2.36" ]; then
+            echo "::error::needs glibc $highest, newer than Raspberry Pi OS Bookworm's 2.36"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-frontend
+          path: build/picture-frontend
+          retention-days: 7
+
+  package:
+    runs-on: ubuntu-latest
+    needs: [backend-aarch64, frontend-aarch64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: bin
 
       - name: Assemble release tarball
         id: package
@@ -79,8 +167,7 @@ jobs:
 
           STAGE=picture-frame
           mkdir -p "$STAGE/bin"
-          install -m 0755 result-frontend/bin/picture-frontend "$STAGE/bin/"
-          install -m 0755 result-backend/bin/picture-backend "$STAGE/bin/"
+          install -m 0755 bin/picture-frontend bin/picture-backend "$STAGE/bin/"
           install -m 0644 deploy/picture-backend.service \
                           deploy/picture-frontend.service \
                           deploy/config.example.toml \
