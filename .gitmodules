@@ -1,0 +1,10 @@
+# Vendored upstream, pinned by commit. https rather than ssh so an anonymous
+# clone — CI, or anyone who is not the author — can fetch them.
+[submodule "libs/lvgl"]
+	path = libs/lvgl
+	url = https://github.com/lvgl/lvgl.git
+	branch = release/v8.3
+[submodule "libs/lv_drivers"]
+	path = libs/lv_drivers
+	url = https://github.com/lvgl/lv_drivers.git
+	branch = release/v8.3

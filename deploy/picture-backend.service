@@ -1,0 +1,50 @@
+[Unit]
+Description=Picture frame Nextcloud sync backend
+Documentation=https://github.com/olivermaier/picture_minimal
+After=network-online.target
+Wants=network-online.target
+# Deliberately no dependency on tailscaled: Tailscale is for administration
+# only, and the frame must display photos on a network where it never comes up.
+
+[Service]
+Type=simple
+User=picture
+Group=picture
+ExecStart=/opt/picture-frame/current/bin/picture-backend --config /etc/picture-frame/config.toml
+Restart=always
+RestartSec=5s
+
+# Bulk rendering after a first sync can peg all four cores for hours, decoding
+# HEIC in software. Keep it out of the frontend's way so the slideshow stays
+# smooth while the import runs.
+Nice=10
+IOSchedulingClass=idle
+
+# systemd creates and owns these, so the daemon needs no setup of its own and
+# they stay writable under ProtectSystem=strict.
+RuntimeDirectory=picture-frame
+RuntimeDirectoryMode=0750
+StateDirectory=picture-frame
+StateDirectoryMode=0750
+
+# Optional: only needed if a Nextcloud credential was pre-seeded instead of
+# obtained by scanning the QR code.
+EnvironmentFile=-/etc/picture-frame/env
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

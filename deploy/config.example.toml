@@ -1,0 +1,53 @@
+# /etc/picture-frame/config.toml
+#
+# Non-secret settings only. The Nextcloud credential is not configured here: the
+# frame obtains it for itself by displaying a QR code, and stores it in
+# /var/lib/picture-frame/auth.json.
+
+# The only value that must be known before pairing can start. Usually identical
+# across every frame in a household, so it can be baked into the SD image.
+server = "https://cloud.example.com"
+
+# What appears on the frame.
+#
+#   "tag"       - photos carrying a Nextcloud collaborative tag (recommended).
+#                 The owner curates the frame from the Nextcloud mobile app, and
+#                 removing the tag removes the photo on the next sync.
+#   "favorites" - photos the user has starred. No shared tag vocabulary, one tap
+#                 on mobile, but people already use stars for other things.
+#   "folder"    - everything in one directory. The always-works fallback.
+selection = "tag"
+
+# Used when selection = "tag". Give each frame its own name only if one person
+# drives more than one frame: two people using the same tag name still see only
+# their own photos, because file visibility is per-user.
+tag = "Frame"
+
+# Used when selection = "folder".
+folder = "/Photos/PictureFrame"
+
+# How often to re-enumerate the selection. One request per cycle for tag and
+# favourites; a directory walk for folder.
+sync_interval = "15m"
+
+# Refuse to decode anything larger than this. A 12 MP photo is roughly 36 MB
+# once decoded, on a board with 512 MB of RAM, so the cap is what stops one
+# enormous file from taking the frame down.
+max_source_pixels = 41943040 # 40 MP
+
+# Upper bound on rendered images kept on disk. Originals are never cached, so
+# this is the whole footprint. Least recently shown blobs are dropped first.
+cache_budget_bytes = 2147483648 # 2 GiB
+
+# Shown on the pairing screen so two frames can be told apart, and used to name
+# the app password in the user's Nextcloud security settings. Defaults to the
+# system hostname.
+# hostname = "livingroom"
+
+# Paths. The defaults match the systemd units and rarely need changing.
+# socket_path = "/run/picture-frame/frontend.sock"
+# state_dir = "/var/lib/picture-frame"
+
+# Adds per-request and per-WebDAV-call detail to the log. Also settable without
+# editing this file by putting FRAME_VERBOSE=1 in /etc/picture-frame/env.
+# verbose = false

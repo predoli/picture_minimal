@@ -1,0 +1,39 @@
+// Reference copy of the tailnet policy the frames rely on.
+//
+// This is not applied automatically; paste the relevant parts into the Tailscale
+// admin console (Access controls). Replace you@example.com and "admin" with your
+// own login and the frame's administrative account.
+{
+  "tagOwners": {
+    // Frames join as tagged nodes. This is the load-bearing detail of the whole
+    // setup: key expiry is disabled by default for tagged devices, so a frame
+    // authenticates once and never again. Untagged nodes expire, which would put
+    // every frame on a recurring re-auth chore.
+    "tag:picture-frame": ["you@example.com"],
+  },
+
+  "acls": [
+    // Administration only. Frames never need to reach each other, and nothing on
+    // the tailnet needs to reach a frame except you.
+    {
+      "action": "accept",
+      "src": ["you@example.com"],
+      "dst": ["tag:picture-frame:22"],
+    },
+  ],
+
+  "ssh": [
+    {
+      "action": "accept",
+      "src": ["you@example.com"],
+      "dst": ["tag:picture-frame"],
+      "users": ["root", "admin"],
+
+      // Deliberately no "checkPeriod": it forces a browser re-authentication,
+      // which would hang the non-interactive
+      //     tailscale ssh frame -- sudo -n picture-frame-update
+      // that deploy/remote-update.sh runs. Add one only if you are willing to
+      // update frames interactively.
+    },
+  ],
+}

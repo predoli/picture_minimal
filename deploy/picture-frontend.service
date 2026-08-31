@@ -1,0 +1,53 @@
+[Unit]
+Description=Picture frame display
+Documentation=https://github.com/olivermaier/picture_minimal
+After=picture-backend.service
+Wants=picture-backend.service
+ConditionPathExists=/dev/dri/card0
+
+[Service]
+Type=simple
+User=picture
+Group=picture
+# Access to the DRM device nodes.
+SupplementaryGroups=video render
+
+ExecStart=/opt/picture-frame/current/bin/picture-frontend
+Restart=always
+RestartSec=5s
+
+Environment=FRAME_SOCKET=/run/picture-frame/frontend.sock
+Environment=FRAME_INTERVAL_MS=30000
+Environment=FRAME_FADE_MS=1000
+
+# Binding a virtual terminal is what grants DRM master without running as root.
+# Without an active session on a VT, the kernel refuses the mode-set and the
+# screen stays black.
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+# NOT PrivateDevices: that would hide /dev/dri and there would be nothing to
+# draw on.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+# Read-only access to the rendered blobs, which the frontend maps but never
+# writes, plus the socket directory.
+ReadOnlyPaths=/var/lib/picture-frame
+ReadWritePaths=/run/picture-frame
+
+[Install]
+WantedBy=multi-user.target

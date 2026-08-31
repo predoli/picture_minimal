@@ -1,0 +1,10 @@
+build/
+result
+result-*
+
+# Per-frame inventory. Non-secret, but it maps hostnames to people's albums.
+deploy/frames.toml
+
+.DS_Store
+compile_commands.json
+.dev/
